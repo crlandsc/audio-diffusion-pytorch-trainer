@@ -1,5 +1,9 @@
 # @package _global_
 
+# Raw diffusion
+
+# Patching creates high freq artifacts
+
 # To execute this experiment on a single GPU run:
 # python train.py exp=base_kick trainer.gpus=1 datamodule.dataset.path=/your_wav_path_here
 
@@ -130,4 +134,4 @@ trainer:
   log_every_n_steps: 1 # Logs metrics every N batches
   check_val_every_n_epoch: null
   val_check_interval: ${log_every_n_steps}
-  # accumulate_grad_batches: 1
+  # accumulate_grad_batches: 1 # use to increase batch size on single GPU

@@ -12,6 +12,9 @@ model:
   lr_beta2: 0.999
   lr_eps: 1e-6
   lr_weight_decay: 1e-3
+
+
+  
   sample_rate: ${sampling_rate}
   loss_type: sdstft
   loss_bottleneck_weight: 1e-4
