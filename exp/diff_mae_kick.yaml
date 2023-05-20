@@ -23,7 +23,7 @@ model:
   model:
     _target_: audio_diffusion_pytorch.DiffusionMAE1d
     in_channels: ${channels}
-    channels: 512
+    channels: 64
     multipliers: [3, 2, 1, 1, 1, 1, 1, 1]
     factors: [1, 2, 2, 2, 2, 2, 2]
     num_blocks: [1, 1, 1, 2, 2, 2, 2]
@@ -36,7 +36,7 @@ model:
     bottleneck:
       - _target_: audio_encoders_pytorch.TanhBottleneck
     stft_use_complex: True
-    stft_num_fft: 1023
+    stft_num_fft: 1023 # 1 less than 1024?
     stft_hop_length: 256
     diffusion_type: v
     diffusion_sigma_distribution:
@@ -94,16 +94,17 @@ loggers:
     _target_: pytorch_lightning.loggers.wandb.WandbLogger
     project: ${oc.env:WANDB_PROJECT}
     entity: ${oc.env:WANDB_ENTITY}
+    name: MAE_model
     # offline: False  # set True to store all logs only locally
     job_type: "train"
-    group: ""
+    group: "" # kick_2
     save_dir: ${logs_dir}
 
 trainer:
   _target_: pytorch_lightning.Trainer
   gpus: 1 # Set `1` to train on GPU, `0` to train on CPU only, and `-1` to train on all GPUs, default `0`
   precision: 16 # Precision used for tensors, default `32`
-  accelerator: null # `ddp` GPUs train individually and sync gradients, default `None`
+  accelerator: auto # `ddp` GPUs train individually and sync gradients, default `None`
   min_epochs: 0
   max_epochs: -1
   enable_model_summary: False

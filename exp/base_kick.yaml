@@ -7,10 +7,10 @@
 # To execute this experiment on a single GPU run:
 # python train.py exp=base_kick trainer.gpus=1 datamodule.dataset.path=/your_wav_path_here
 
-sampling_rate: 44100
-length: 131072 #65536
+sampling_rate: 48000
+length: 32768 #131072 #65536
 channels: 2
-log_every_n_steps: 1000
+log_every_n_steps: 4000
 
 model:
   _target_: main.module_base.Model
@@ -26,10 +26,12 @@ model:
     _target_: audio_diffusion_pytorch.AudioDiffusionModel
     in_channels: ${channels}
     channels: 64 #128
-    patch_size: 8
+    # patch_size: 8
+    # patch_factor: 1
+    # patch_blocks: 1
     resnet_groups: 8
     kernel_multiplier_downsample: 2
-    multipliers: [1, 2, 4, 4, 4, 4, 4] #[1, 2, 4, 4, 8, 8, 16]
+    multipliers: [2, 2, 3, 4, 4, 8, 8]
     factors: [2, 2, 2, 2, 2, 2]
     num_blocks: [2, 2, 2, 2, 2, 2]
     attentions: [0, 0, 0, 0, 1, 1, 1]
@@ -42,25 +44,6 @@ model:
     diffusion_sigma_distribution:
       _target_: audio_diffusion_pytorch.UniformDistribution
 
-  # model:
-  #   _target_: audio_diffusion_pytorch.AudioDiffusionModel
-  #   in_channels: ${channels}
-    # channels: 32 #128
-    # patch_size: 16
-    # resnet_groups: 8
-    # kernel_multiplier_downsample: 2
-    # multipliers: [1, 2, 4, 4, 4, 4, 4]
-    # factors: [2, 2, 2, 2, 2, 2]
-    # num_blocks: [2, 2, 2, 2, 2, 2]
-    # attentions: [0, 0, 0, 0, 1, 1, 1]
-  #   attention_heads: 8
-  #   attention_features: 64
-  #   attention_multiplier: 4
-  #   use_nearest_upsample: False
-  #   use_skip_scale: True
-  #   diffusion_type: v
-  #   diffusion_sigma_distribution:
-  #     _target_: audio_diffusion_pytorch.UniformDistribution
 
 datamodule:
   _target_: main.module_base.Datamodule
@@ -72,12 +55,12 @@ datamodule:
     transforms:
       _target_: audio_data_pytorch.AllTransform
       crop_size: ${length} # One-shots, so no random crop
-      # stereo: True
+      stereo: True
       source_rate: ${sampling_rate}
       target_rate: ${sampling_rate}
-      loudness: -2
+      loudness: -20
   val_split: 0.05
-  batch_size: 4
+  batch_size: 2
   num_workers: 8
   pin_memory: True
 
@@ -105,7 +88,7 @@ callbacks:
     channels: ${channels}
     sampling_rate: ${sampling_rate}
     length: ${length}
-    sampling_steps: [3,5,10,25,50,100]
+    sampling_steps: [3,25,100]
     use_ema_model: True
     diffusion_sampler:
       _target_: audio_diffusion_pytorch.VSampler
@@ -126,7 +109,7 @@ loggers:
 trainer:
   _target_: pytorch_lightning.Trainer
   gpus: 1 # Set `1` to train on GPU, `0` to train on CPU only, and `-1` to train on all GPUs, default `0`
-  precision: 16 # Precision used for tensors, default `32`, 16 for quicker runs on local machine
+  precision: 32 # Precision used for tensors, default `32`, 16 for quicker runs on local machine
   accelerator: auto # default `None`
   min_epochs: 0
   max_epochs: -1
@@ -134,4 +117,4 @@ trainer:
   log_every_n_steps: 1 # Logs metrics every N batches
   check_val_every_n_epoch: null
   val_check_interval: ${log_every_n_steps}
-  # accumulate_grad_batches: 1 # use to increase batch size on single GPU
+  accumulate_grad_batches: 8 # use to increase batch size on single GPU
