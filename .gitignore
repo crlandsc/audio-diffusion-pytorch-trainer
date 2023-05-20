@@ -9,6 +9,7 @@ logs/
 data/
 train.log
 .vscode/
+samples/
 
 # Python Template
 # Byte-compiled / optimized / DLL files
