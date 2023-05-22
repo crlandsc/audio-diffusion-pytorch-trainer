@@ -23,43 +23,26 @@ model:
   ema_power: 0.7
 
   model:
-    _target_: main.DiffusionModel
-    net_t:
-      _target_: main.UNetV0 # The model type used for diffusion (U-Net V0 in this case)
-      dim: 1 # 1D Unet
-      in_channels: 2 # U-Net: number of input/output (audio) channels
-      channels: [256, 512, 512, 512, 1024, 1024, 1024] # U-Net: channels at each layer
-      factors: [1, 2, 2, 2, 2, 2, 2] # U-Net: downsampling and upsampling factors at each layer
-      items: [1, 2, 2, 2, 2, 2, 2] # U-Net: number of repeating items at each layer
-      attentions: [0, 0, 0, 0, 1, 1, 1] # U-Net: attention enabled/disabled at each layer
-      attention_heads: 8 # U-Net: number of attention heads per attention item
-      attention_features: 64 # U-Net: number of attention features per attention item
-    diffusion_t:
-      _target_: main.VDiffusion # The diffusion method used
-      net: ${model.model.net_t}
-    sampler_t:
-      _target_: main.VSampler # The diffusion sampler used
-      net: ${model.model.net_t}
-    
-    # in_channels: ${channels}
-    # channels: 64 #128
-    # # patch_size: 8
-    # # patch_factor: 1
-    # # patch_blocks: 1
-    # resnet_groups: 8
-    # kernel_multiplier_downsample: 2
-    # multipliers: [2, 2, 3, 4, 4, 8, 8]
-    # factors: [2, 2, 2, 2, 2, 2]
-    # num_blocks: [2, 2, 2, 2, 2, 2]
-    # attentions: [0, 0, 0, 0, 1, 1, 1]
-    # attention_heads: 8
-    # attention_features: 64
-    # attention_multiplier: 4
-    # use_nearest_upsample: False
-    # use_skip_scale: True
-    # diffusion_type: v
-    # diffusion_sigma_distribution:
-    #   _target_: audio_diffusion_pytorch.UniformDistribution
+    _target_: audio_diffusion_pytorch.AudioDiffusionModel
+    in_channels: ${channels}
+    channels: 64 #128
+    # patch_size: 8
+    # patch_factor: 1
+    # patch_blocks: 1
+    resnet_groups: 8
+    kernel_multiplier_downsample: 2
+    multipliers: [2, 2, 3, 4, 4, 8, 8]
+    factors: [2, 2, 2, 2, 2, 2]
+    num_blocks: [2, 2, 2, 2, 2, 2]
+    attentions: [0, 0, 0, 0, 1, 1, 1]
+    attention_heads: 8
+    attention_features: 64
+    attention_multiplier: 4
+    use_nearest_upsample: False
+    use_skip_scale: True
+    diffusion_type: v
+    diffusion_sigma_distribution:
+      _target_: audio_diffusion_pytorch.UniformDistribution
 
 
 datamodule:
@@ -108,11 +91,9 @@ callbacks:
     sampling_steps: [3,25,100]
     use_ema_model: True
     diffusion_sampler:
-      _target_: main.VSampler
-      net: ${model.model.net_t}
-        # _target_: ${model.model.net_t._target_}
+      _target_: audio_diffusion_pytorch.VSampler
     diffusion_schedule:
-      _target_: main.LinearSchedule
+      _target_: audio_diffusion_pytorch.LinearSchedule
 
 loggers:
   wandb:

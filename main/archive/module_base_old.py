@@ -7,8 +7,7 @@ import torch
 import torchaudio
 import wandb
 from audio_data_pytorch.utils import fractional_random_split
-# from audio_diffusion_pytorch import AudioDiffusionModel, Sampler, Schedule
-from main import DiffusionModel, Sampler, Schedule
+from audio_diffusion_pytorch import AudioDiffusionModel, Sampler, Schedule
 from einops import rearrange
 from ema_pytorch import EMA
 from pytorch_lightning import Callback, Trainer

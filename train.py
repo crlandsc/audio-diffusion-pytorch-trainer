@@ -10,6 +10,8 @@ from omegaconf import DictConfig, open_dict
 dotenv.load_dotenv(override=True)
 log = utils.get_logger(__name__)
 
+# from audio_diffusion_pytorch import DiffusionModel, UNetV0, VDiffusion, VSampler
+from main import DiffusionModel, UNetV0, VDiffusion, VSampler, module_base
 
 @hydra.main(config_path=".", config_name="config.yaml", version_base=None)
 def main(config: DictConfig) -> None:
@@ -26,7 +28,32 @@ def main(config: DictConfig) -> None:
 
     # Initialize model
     log.info(f"Instantiating model <{config.model._target_}>.")
-    model = hydra.utils.instantiate(config.model, _convert_="partial")
+
+    model = DiffusionModel(
+        net_t=UNetV0, # The model type used for diffusion (U-Net V0 in this case)
+        in_channels=2, # U-Net: number of input/output (audio) channels
+        channels=[8, 32, 64, 128, 256, 512], # U-Net: channels at each layer
+        factors=[1, 2, 2, 2, 2, 2], # U-Net: downsampling and upsampling factors at each layer
+        items=[1, 2, 2, 2, 2, 2], # U-Net: number of repeating items at each layer
+        attentions=[0, 0, 0, 0, 0, 0], # U-Net: attention enabled/disabled at each layer
+        attention_heads=8, # U-Net: number of attention heads per attention item
+        attention_features=64, # U-Net: number of attention features per attention item
+        diffusion_t=VDiffusion, # The diffusion method used
+        sampler_t=VSampler, # The diffusion sampler used
+    )
+
+    model = module_base.Model(
+        lr=1e-4,
+        lr_beta1=0.95,
+        lr_beta2=0.999,
+        lr_eps=1e-6,
+        lr_weight_decay=1e-3,
+        ema_beta=0.995,
+        ema_power=0.7,
+        model=model
+    )
+
+    # model = hydra.utils.instantiate(config.model, _convert_="partial")
 
     # Initialize all callbacks (e.g. checkpoints, early stopping)
     callbacks = []
