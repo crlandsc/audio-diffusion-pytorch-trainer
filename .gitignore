@@ -10,6 +10,7 @@ data/
 train.log
 .vscode/
 samples/
+*Zone.Identifier
 
 # Python Template
 # Byte-compiled / optimized / DLL files
