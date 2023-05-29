@@ -24,8 +24,8 @@ from torch import Tensor, nn, optim
 from torch.utils.data import DataLoader
 from tqdm import tqdm 
 
-from archisound import ArchiSound
-from transformers import AutoModel 
+# from archisound import ArchiSound
+# from transformers import AutoModel 
 
 """ Model """
 
