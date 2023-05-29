@@ -1,23 +1,44 @@
-from typing import Any, Callable, List, Optional
+from audio_data_pytorch.utils import fractional_random_split
+# # from audio_diffusion_pytorch import AudioDiffusionModel, Sampler, Schedule
+from main import DiffusionModel, Sampler, Schedule
+from pytorch_lightning.loggers import LoggerCollection, WandbLogger
 
-import librosa
+import random
+import warnings
+from copy import deepcopy
+from typing import Any, Callable, Dict, List, Optional, Sequence, Union, Type, Tuple 
+from math import pi 
+
+import json 
 import plotly.graph_objs as go
 import pytorch_lightning as pl
 import torch
 import torchaudio
 import wandb
-from audio_data_pytorch.utils import fractional_random_split
-# from audio_diffusion_pytorch import AudioDiffusionModel, Sampler, Schedule
-from main import DiffusionModel, Sampler, Schedule
-from einops import rearrange
+import torch.nn.functional as F 
+from einops import rearrange, repeat
 from ema_pytorch import EMA
 from pytorch_lightning import Callback, Trainer
-from pytorch_lightning.loggers import LoggerCollection, WandbLogger
-from torch import Tensor, nn
+from pytorch_lightning.utilities import rank_zero_only
+from torch import Tensor, nn, optim
 from torch.utils.data import DataLoader
+from tqdm import tqdm 
+
+from archisound import ArchiSound
+from transformers import AutoModel 
 
 """ Model """
 
+# torch.set_float32_matmul_precision('high')
+
+from audio_diffusion_pytorch import UNetV0, VDiffusion, VSampler
+
+UNetT = lambda: UNetV0
+DiffusionT = VDiffusion
+SamplerT = VSampler
+
+def dropout(proba: float):
+    return random.random() < proba
 
 class Model(pl.LightningModule):
     def __init__(
@@ -55,18 +76,18 @@ class Model(pl.LightningModule):
         return optimizer
 
     def training_step(self, batch, batch_idx):
-        waveforms = batch
-        loss = self.model(waveforms)
-        self.log("train_loss", loss)
+        wave = batch
+        loss = self.model(wave)
+        self.log("train_loss", loss, sync_dist=True)
         # Update EMA model and log decay
         self.model_ema.update()
-        self.log("ema_decay", self.model_ema.get_current_decay())
+        self.log("ema_decay", self.model_ema.get_current_decay(), sync_dist=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
-        waveforms = batch
-        loss = self.model_ema(waveforms)
-        self.log("valid_loss", loss)
+        wave = batch
+        loss = self.model_ema(wave)
+        self.log("valid_loss", loss, sync_dist=True)
         return loss
 
 
@@ -97,23 +118,21 @@ class Datamodule(pl.LightningDataModule):
         split = [1.0 - self.val_split, self.val_split]
         self.data_train, self.data_val = fractional_random_split(self.dataset, split)
 
-    def train_dataloader(self) -> DataLoader:
+    def get_dataloader(self, dataset) -> DataLoader:
         return DataLoader(
-            dataset=self.data_train,
+            dataset=dataset,            
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
             shuffle=True,
+            prefetch_factor=2,
         )
 
+    def train_dataloader(self) -> DataLoader:
+        return self.get_dataloader(self.data_train)
+
     def val_dataloader(self) -> DataLoader:
-        return DataLoader(
-            dataset=self.data_val,
-            batch_size=self.batch_size,
-            num_workers=self.num_workers,
-            pin_memory=self.pin_memory,
-            shuffle=True,
-        )
+        return self.get_dataloader(self.data_val)
 
 
 """ Callbacks """
@@ -167,12 +186,11 @@ def log_wandb_audio_spectrogram(
 
     def get_spectrogram_image(x):
         spectrogram = transform(x[0])
-        image = librosa.power_to_db(spectrogram)
+        image = torchaudio.functional.amplitude_to_DB(spectrogram, 1.0, 1e-10, 80.0)
         trace = [go.Heatmap(z=image, colorscale="viridis")]
         layout = go.Layout(
             yaxis=dict(title="Mel Bin (Log Frequency)"),
             xaxis=dict(title="Frame"),
-            title_text=caption,
             title_font_size=10,
         )
         fig = go.Figure(data=trace, layout=layout)
@@ -192,22 +210,22 @@ class SampleLogger(Callback):
         num_items: int,
         channels: int,
         sampling_rate: int,
-        length: int,
         sampling_steps: List[int],
-        diffusion_schedule: Schedule,
-        diffusion_sampler: Sampler,
         use_ema_model: bool,
+        length: int,
+        # diffusion_schedule: Schedule,
+        # diffusion_sampler: Sampler,
     ) -> None:
         self.num_items = num_items
         self.channels = channels
         self.sampling_rate = sampling_rate
-        self.length = length
         self.sampling_steps = sampling_steps
-        self.diffusion_schedule = diffusion_schedule
-        self.diffusion_sampler = diffusion_sampler
         self.use_ema_model = use_ema_model
-
         self.log_next = False
+        self.length = length
+        # self.diffusion_schedule = diffusion_schedule
+        # self.diffusion_sampler = diffusion_sampler
+
 
     def on_validation_epoch_start(self, trainer, pl_module):
         self.log_next = True
@@ -226,10 +244,27 @@ class SampleLogger(Callback):
             pl_module.eval()
 
         wandb_logger = get_wandb_logger(trainer).experiment
+        model = pl_module.model
 
-        diffusion_model = pl_module.model
         if self.use_ema_model:
-            diffusion_model = pl_module.model_ema.ema_model
+            model = pl_module.model_ema.ema_model
+
+        
+        # waveform = batch
+        # waveform = waveform[0 : self.num_items]
+
+        # log_wandb_audio_batch(
+        #     logger=wandb_logger,
+        #     id="true",
+        #     samples=waveform,
+        #     sampling_rate=self.sampling_rate, 
+        # )
+        # log_wandb_audio_spectrogram(
+        #     logger=wandb_logger,
+        #     id="true",
+        #     samples=waveform,
+        #     sampling_rate=self.sampling_rate,
+        # )
 
         # Get start diffusion noise
         noise = torch.randn(
@@ -237,10 +272,10 @@ class SampleLogger(Callback):
         )
 
         for steps in self.sampling_steps:
-            samples = diffusion_model.sample(
-                noise=noise,
-                sampler=self.diffusion_sampler,
-                sigma_schedule=self.diffusion_schedule,
+            samples = model.sample(
+                noise,
+                # sampler=self.diffusion_sampler,
+                # sigma_schedule=self.diffusion_schedule,
                 num_steps=steps,
             )
             log_wandb_audio_batch(
