@@ -1,6 +1,5 @@
-# Drum Diffusion
-This is a repository for training diffusion models targeted for drums built on [Archinet architecture](https://github.com/archinetai/audio-diffusion-pytorch).
-
+# Audio Diffusion PyTorch Trainer
+This is a repository for training models from audio_diffusion_pytorch v 0.1.3.
 
 ## Setup
 
