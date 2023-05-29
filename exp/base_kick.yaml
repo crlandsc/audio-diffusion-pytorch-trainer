@@ -8,8 +8,8 @@
 # python train.py exp=base_kick trainer.gpus=1 datamodule.dataset.path=/your_wav_path_here
 
 module: main.module_base
-batch_size: 8
-accumulate_grad_batches: 2 # use to increase batch size on single GPU effective batch size = (batch_size * accumulate_grad_batches)
+batch_size: 4
+accumulate_grad_batches: 4 # use to increase batch size on single GPU effective batch size = (batch_size * accumulate_grad_batches)
 num_workers: 8
 
 sampling_rate: 44100
