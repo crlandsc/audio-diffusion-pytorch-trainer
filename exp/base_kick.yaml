@@ -7,13 +7,19 @@
 # To execute this experiment on a single GPU run:
 # python train.py exp=base_kick trainer.gpus=1 datamodule.dataset.path=/your_wav_path_here
 
-sampling_rate: 48000
+module: main.module_base
+batch_size: 2
+accumulate_grad_batches: 8 # use to increase batch size on single GPU effective batch size = (batch_size * accumulate_grad_batches)
+num_workers: 8
+
+sampling_rate: 44100
 length: 32768 #131072 #65536
 channels: 2
-log_every_n_steps: 4000
+log_every_n_steps: 500
+# ckpt_every_n_steps: 4000 # Use if multiple checkpoints wanted
 
 model:
-  _target_: main.module_base.Model
+  _target_: ${module}.Model
   lr: 1e-4
   lr_beta1: 0.95
   lr_beta2: 0.999
@@ -25,43 +31,44 @@ model:
   model:
     _target_: main.DiffusionModel
     net_t:
-      _target_: main.UNetV0 # The model type used for diffusion (U-Net V0 in this case)
-      dim: 1 # 1D Unet
-      in_channels: 2 # U-Net: number of input/output (audio) channels
-      channels: [256, 512, 512, 512, 1024, 1024, 1024] # U-Net: channels at each layer
-      factors: [1, 2, 2, 2, 2, 2, 2] # U-Net: downsampling and upsampling factors at each layer
-      items: [1, 2, 2, 2, 2, 2, 2] # U-Net: number of repeating items at each layer
-      attentions: [0, 0, 0, 0, 1, 1, 1] # U-Net: attention enabled/disabled at each layer
-      attention_heads: 8 # U-Net: number of attention heads per attention item
-      attention_features: 64 # U-Net: number of attention features per attention item
-    diffusion_t:
-      _target_: main.VDiffusion # The diffusion method used
-      net: ${model.model.net_t}
-    sampler_t:
-      _target_: main.VSampler # The diffusion sampler used
-      net: ${model.model.net_t}
+      _target_: ${module}.UNetT # The model type used for diffusion (U-Net V0 in this case)
+      # dim: 1 # 1D Unet
+    in_channels: 2 # U-Net: number of input/output (audio) channels
+    # channels: [8, 32, 64, 128, 256, 512] # U-Net: channels at each layer
+    # factors: [1, 2, 2, 2, 2, 2] # U-Net: downsampling and upsampling factors at each layer
+    # items: [1, 2, 2, 2, 2, 2] # U-Net: number of repeating items at each layer
+    # attentions: [0, 0, 0, 0, 0, 0] # U-Net: attention enabled/disabled at each layer
+    channels: [128, 128, 192, 256, 256, 512, 512] # U-Net: channels at each layer
+    # channels: [8, 16, 16, 32, 32, 64, 64] # U-Net: channels at each layer
+    factors: [1, 2, 2, 2, 2, 2, 2] # U-Net: downsampling and upsampling factors at each layer
+    items: [1, 2, 2, 2, 2, 2, 2] # U-Net: number of repeating items at each layer
+    attentions: [0, 0, 0, 0, 1, 1, 1] # U-Net: attention enabled/disabled at each layer
+    attention_heads: 8 # U-Net: number of attention heads per attention item
+    attention_features: 64 # U-Net: number of attention features per attention item
+    # channels: [8, 16, 32, 32, 64, 64, 128] # U-Net: channels at each layer
+    # factors: [1, 2, 2, 2, 2, 2, 2] # U-Net: downsampling and upsampling factors at each layer
+    # items: [1, 2, 2, 2, 2, 2, 2] # U-Net: number of repeating items at each layer
+    # attentions: [0, 0, 0, 0, 1, 1, 1] # U-Net: attention enabled/disabled at each layer
+    # attention_heads: 4 # U-Net: number of attention heads per attention item
+    # attention_features: 32 # U-Net: number of attention features per attention item
+    # Include specific diffusion or sampler types
+    # diffusion_t:
+    #   _target_: ${module}.DiffusionT # The diffusion method used (adjust in module_base.py)
+    #   # net: ${model.model.net_t}
+    # sampler_t:
+    #   _target_: ${module}.SamplerT # The diffusion sampler used (adjust in module_base.py)
+      # net: ${model.model.net_t}
+
+    # # Include specific diffusion or sampler types
+    # diffusion_t:
+    #   _target_: main.VDiffusion # The diffusion method used
+    #   net: ${model.model.net_t}
+    # sampler_t:
+    #   _target_: main.VSampler # The diffusion sampler used
+    #   net: ${model.model.net_t}
     
-    # in_channels: ${channels}
-    # channels: 64 #128
-    # # patch_size: 8
-    # # patch_factor: 1
-    # # patch_blocks: 1
-    # resnet_groups: 8
-    # kernel_multiplier_downsample: 2
-    # multipliers: [2, 2, 3, 4, 4, 8, 8]
-    # factors: [2, 2, 2, 2, 2, 2]
-    # num_blocks: [2, 2, 2, 2, 2, 2]
-    # attentions: [0, 0, 0, 0, 1, 1, 1]
-    # attention_heads: 8
-    # attention_features: 64
-    # attention_multiplier: 4
-    # use_nearest_upsample: False
-    # use_skip_scale: True
-    # diffusion_type: v
-    # diffusion_sigma_distribution:
-    #   _target_: audio_diffusion_pytorch.UniformDistribution
 
-
+# To specify train-valid datasets, datamodule must be reconfigured
 datamodule:
   _target_: main.module_base.Datamodule
   dataset:
@@ -77,9 +84,10 @@ datamodule:
       target_rate: ${sampling_rate}
       loudness: -20
   val_split: 0.05
-  batch_size: 2
-  num_workers: 8
+  batch_size: ${batch_size}
+  num_workers: ${num_workers}
   pin_memory: True
+
 
 callbacks:
   rich_progress_bar:
@@ -94,6 +102,7 @@ callbacks:
     verbose: False
     dirpath: ${logs_dir}/ckpts/${now:%Y-%m-%d-%H-%M-%S}
     filename: '{epoch:02d}-{valid_loss:.3f}'
+    # every_n_train_steps: ${ckpt_every_n_steps} # Use if multiple checkpoints wanted
 
   model_summary:
     _target_: pytorch_lightning.callbacks.RichModelSummary
@@ -104,22 +113,21 @@ callbacks:
     num_items: 4
     channels: ${channels}
     sampling_rate: ${sampling_rate}
-    length: ${length}
-    sampling_steps: [3,25,100]
+    length: ${length} # length of generated sample
+    sampling_steps: [10, 50] # number of steps per sample
     use_ema_model: True
-    diffusion_sampler:
-      _target_: main.VSampler
-      net: ${model.model.net_t}
-        # _target_: ${model.model.net_t._target_}
-    diffusion_schedule:
-      _target_: main.LinearSchedule
+    # diffusion_sampler:
+    #   _target_: main.VSampler
+    #   net: ${model.model.net_t}
+    # diffusion_schedule:
+    #   _target_: main.LinearSchedule
 
 loggers:
   wandb:
     _target_: pytorch_lightning.loggers.wandb.WandbLogger
     project: ${oc.env:WANDB_PROJECT}
     entity: ${oc.env:WANDB_ENTITY}
-    name: base_model
+    name: unconditional_diffusion
     # offline: False  # set True to store all logs only locally
     job_type: "train"
     group: "" #"kick_1"
@@ -128,12 +136,13 @@ loggers:
 trainer:
   _target_: pytorch_lightning.Trainer
   gpus: 1 # Set `1` to train on GPU, `0` to train on CPU only, and `-1` to train on all GPUs, default `0`
-  precision: 32 # Precision used for tensors, default `32`, 16 for quicker runs on local machine
+  precision: 16 # Precision used for tensors, default `32`, 16 for quicker runs on local machine
   accelerator: auto # default `None`
   min_epochs: 0
   max_epochs: -1
   enable_model_summary: False
   log_every_n_steps: 1 # Logs metrics every N batches
+  # limit_val_batches: 10 # Use to limit the number of valid batches run (e.g. 10 stops training at 10 batches)
   check_val_every_n_epoch: null
   val_check_interval: ${log_every_n_steps}
-  accumulate_grad_batches: 8 # use to increase batch size on single GPU
+  accumulate_grad_batches: ${accumulate_grad_batches} # use to increase batch size on single GPU
