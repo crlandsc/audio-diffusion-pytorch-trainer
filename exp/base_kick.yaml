@@ -8,14 +8,14 @@
 # python train.py exp=base_kick trainer.gpus=1 datamodule.dataset.path=/your_wav_path_here
 
 module: main.module_base
-batch_size: 4
-accumulate_grad_batches: 4 # use to increase batch size on single GPU effective batch size = (batch_size * accumulate_grad_batches)
+batch_size: 2
+accumulate_grad_batches: 8 # use to increase batch size on single GPU effective batch size = (batch_size * accumulate_grad_batches)
 num_workers: 8
 
 sampling_rate: 44100
-length: 32768 #131072 #65536
+length: 131072 #65536 #32768
 channels: 2
-log_every_n_steps: 10000
+log_every_n_steps: 1000
 # ckpt_every_n_steps: 4000 # Use if multiple checkpoints wanted
 
 model:
@@ -31,20 +31,29 @@ model:
   model:
     _target_: main.DiffusionModel
     net_t:
-      _target_: ${module}.UNetT # The model type used for diffusion (U-Net V0 in this case)
+      _target_: ${module}.UNetT_LT # The model type used for diffusion (U-Net V0 in this case)
       # dim: 1 # 1D Unet
     in_channels: 2 # U-Net: number of input/output (audio) channels
     # channels: [8, 32, 64, 128, 256, 512] # U-Net: channels at each layer
     # factors: [1, 2, 2, 2, 2, 2] # U-Net: downsampling and upsampling factors at each layer
     # items: [1, 2, 2, 2, 2, 2] # U-Net: number of repeating items at each layer
     # attentions: [0, 0, 0, 0, 0, 0] # U-Net: attention enabled/disabled at each layer
-    channels: [128, 128, 192, 256, 256, 512, 512] # U-Net: channels at each layer
-    # channels: [8, 16, 16, 32, 32, 64, 64] # U-Net: channels at each layer
-    factors: [1, 2, 2, 2, 2, 2, 2] # U-Net: downsampling and upsampling factors at each layer
-    items: [1, 2, 2, 2, 2, 2, 2] # U-Net: number of repeating items at each layer
-    attentions: [0, 0, 0, 0, 1, 1, 1] # U-Net: attention enabled/disabled at each layer
+
+    # channels: [256, 256, 512, 512, 1024, 1024] # U-Net: channels at each layer
+    channels: [128, 128, 192, 192, 256, 256] # U-Net: channels at each layer
+    factors: [1, 2, 2, 2, 2, 2] # U-Net: downsampling and upsampling factors at each layer
+    items: [2, 2, 2, 2, 4, 4] # U-Net: number of repeating items at each layer
+    attentions: [0, 0, 0, 0, 1, 1] # U-Net: attention enabled/disabled at each layer
     attention_heads: 8 # U-Net: number of attention heads per attention item
     attention_features: 64 # U-Net: number of attention features per attention item
+
+    # channels: [128, 128, 192, 256, 256, 512, 512] # U-Net: channels at each layer
+    # # channels: [8, 16, 16, 32, 32, 64, 64] # U-Net: channels at each layer
+    # factors: [1, 2, 2, 2, 2, 2, 2] # U-Net: downsampling and upsampling factors at each layer
+    # items: [1, 2, 2, 2, 2, 2, 2] # U-Net: number of repeating items at each layer
+    # attentions: [0, 0, 0, 0, 1, 1, 1] # U-Net: attention enabled/disabled at each layer
+    # attention_heads: 8 # U-Net: number of attention heads per attention item
+    # attention_features: 64 # U-Net: number of attention features per attention item
     # channels: [8, 16, 32, 32, 64, 64, 128] # U-Net: channels at each layer
     # factors: [1, 2, 2, 2, 2, 2, 2] # U-Net: downsampling and upsampling factors at each layer
     # items: [1, 2, 2, 2, 2, 2, 2] # U-Net: number of repeating items at each layer
@@ -91,7 +100,8 @@ datamodule:
 
 callbacks:
   rich_progress_bar:
-    _target_: pytorch_lightning.callbacks.TQDMProgressBar # RichProgressBar
+    # _target_: pytorch_lightning.callbacks.TQDMProgressBar
+    _target_: pytorch_lightning.callbacks.RichProgressBar
 
   model_checkpoint:
     _target_: pytorch_lightning.callbacks.ModelCheckpoint
