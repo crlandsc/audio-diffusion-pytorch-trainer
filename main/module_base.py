@@ -31,8 +31,9 @@ from tqdm import tqdm
 
 # torch.set_float32_matmul_precision('high')
 
-from audio_diffusion_pytorch import UNetV0, VDiffusion, VSampler
+from audio_diffusion_pytorch import UNetV0, VDiffusion, VSampler, LTPlugin
 
+UNetT_LT = lambda: LTPlugin(UNetV0, num_filters=32, window_length=16, stride=16)
 UNetT = lambda: UNetV0
 DiffusionT = VDiffusion
 SamplerT = VSampler
