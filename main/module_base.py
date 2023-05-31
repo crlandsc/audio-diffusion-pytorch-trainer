@@ -33,7 +33,9 @@ from tqdm import tqdm
 
 from audio_diffusion_pytorch import UNetV0, VDiffusion, VSampler, LTPlugin
 
+# Use learned transform to downsapmler (by stride length)
 UNetT_LT = lambda: LTPlugin(UNetV0, num_filters=32, window_length=16, stride=16)
+
 UNetT = lambda: UNetV0
 DiffusionT = VDiffusion
 SamplerT = VSampler
