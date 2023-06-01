@@ -2,6 +2,7 @@ import os
 
 import dotenv
 import hydra
+import torch
 import pytorch_lightning as pl
 from main import utils
 from omegaconf import DictConfig, open_dict
@@ -106,9 +107,15 @@ def main(config: DictConfig) -> None:
 
     # Train with checkpoint if present, otherwise from start
     if "ckpt" in config:
-        ckpt = config.get("ckpt")
-        log.info(f"Starting training from {ckpt}")
-        trainer.fit(model=model, datamodule=datamodule, ckpt_path=ckpt)
+        # ckpt = config.get("ckpt")
+        # log.info(f"Starting training from {ckpt}")
+        # trainer.fit(model=model, datamodule=datamodule, ckpt_path=ckpt)
+
+        # Alternative model load method
+        # Use if loading from checkpoint with pl trainer causes GPU memory spike (CUDA out of memory).
+        checkpoint = torch.load(config.get("ckpt"), map_location='cpu')['state_dict']
+        model.load_state_dict(checkpoint)
+        trainer.fit(model=model, datamodule=datamodule)
     else:
         log.info("Starting training.")
         trainer.fit(model=model, datamodule=datamodule)
