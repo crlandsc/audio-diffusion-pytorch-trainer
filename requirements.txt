@@ -17,6 +17,8 @@ transformers
 eng-to-ipa
 ema-pytorch
 py7zr
+notebook
+matplotlib
 
 audio-diffusion-pytorch==0.1.3
 audio-encoders-pytorch
