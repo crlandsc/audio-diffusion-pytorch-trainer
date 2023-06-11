@@ -54,7 +54,7 @@ datamodule:
       stereo: True
       source_rate: ${sampling_rate}
       target_rate: ${sampling_rate}
-      loudness: -5
+      loudness: -10 # -5 for v0
   val_split: 0.05
   batch_size: ${batch_size}
   num_workers: ${num_workers}
